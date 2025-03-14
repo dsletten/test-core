@@ -1,6 +1,7 @@
 # test-core
 
-A Clojure library designed to ... well, that part is up to you.
+Unit tests designed to illustrate and explore fundamental Clojure behavior in the
+clojure.core namespace.
 
 ## Usage
 

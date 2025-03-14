@@ -1,5 +1,6 @@
 (ns test-core.core-test
   (:require [clojure.math :as math]
+            [clojure.pprint :refer [cl-format]]
             [clojure.test :refer :all]))
 
 ;; (defn to-array
@@ -452,6 +453,7 @@
   (is (nil? (nth nil 1)))
   (is (nil? (nth nil 100))))
 
+;; The other comparison operators are below?!
 (deftest test-<
   (is (< 2))
   (is (< 2 3))
@@ -489,7 +491,7 @@
   (is (== 9223372036854775808N (inc (bigint Long/MAX_VALUE))))
   (is (== 9223372036854775808N (inc (biginteger Long/MAX_VALUE)))) )
 
-; reduce1
+; reduce1 -> reduce
 
 (deftest test-reverse
   (is (= '(c b a) (reverse '(a b c))))
@@ -501,6 +503,8 @@
   (is (= '(\g \n \u \p) (reverse "pung")))
   (is (= clojure.lang.PersistentList (class (reverse "pung")))) )
 
+; nary-inline
+; *unchecked-math*
 ; >1?, >0?
 
 (deftest test-+'
@@ -577,6 +581,386 @@
   (is (not= (- 1 (- 2 (- 3 4))) (- 1 2 3 4)))
   (is (thrown? ArithmeticException (- Long/MIN_VALUE 1)))
   (is (== ##-Inf (- 0 Double/MAX_VALUE Double/MAX_VALUE))))
+
+(deftest test-<=
+  (is (<= 2))
+  (is (<= 2 3))
+  (is (<= 8/9 1.0 5/4 2N 8M))
+  (is (<= 1 2 3 4 5))
+  (is (<= 1 1 2 2 3 3 4 4))
+  (is (not (<= 1 1 2 2 Math/PI 3 4 4))))
+
+(deftest test->
+  (is (> 2))
+  (is (> 3 2))
+  (is (apply > (reverse '(8/9 1.0 5/4 2N 8M))))
+  (is (apply > (reverse '(1 2 3 4 5))))
+  (is (not (apply > (reverse '(1 1 2 2 3 3 4 4)))) ))
+
+(deftest test->=
+  (is (>= 2))
+  (is (>= 3 2))
+  (is (apply >= (reverse '(8/9 1.0 5/4 2N 8M))))
+  (is (apply >= (reverse '(1 2 3 4 5))))
+  (is (apply >= (reverse '(1 1 2 2 3 3 4 4))))
+  (is (not (apply <= (reverse '(1 1 2 2 Math/PI 3 4 4)))) ))
+
+(deftest test-==
+  (is (== 2))
+  (is (== 2 2))
+  (is (not (== 2 3)))
+  (is (not (= 2 2.0)))
+  (is (== 2 2.0))
+  ;; (is (not (= 2 2N)))
+  ;; (is (== 2 2N))
+  (is (not (= 2 2M)))
+  (is (== 2 2M))
+  (is (not (= 2.0 2M)))
+  (is (== 2.0 2M))
+  (is (= (= 0 -0) (== 0 -0)))
+  (is (= (= 0.0 -0.0) (== 0.0 -0.0)))
+  (is (= (= ##Inf ##Inf) (== ##Inf ##Inf)))
+  (is (= (= ##-Inf ##-Inf) (== ##-Inf ##-Inf)))
+  (is (= (= ##NaN ##NaN) (== ##NaN ##NaN)))
+  (is (== 2 2.0 2M 2N 4/2)))
+
+(deftest test-max
+  (is (== 2 (max 2)))
+  (is (== 3 (max 2 3)))
+  (is (== 5 (apply max (shuffle [5 4 3 2 1]))))
+  (is (= 2.0 (max 2 2.0)))
+  (is (= 2.0 (max 2 4/2 2M 2N 2.0)))) ; Latter of equal values favored
+
+(deftest test-min
+  (is (== 2 (min 2)))
+  (is (== 2 (min 2 3)))
+  (is (== 1 (apply min (shuffle [5 4 3 2 1]))))
+  (is (= 2.0 (min 2 2.0)))
+  (is (= 2.0 (min 2 4/2 2M 2N 2.0)))) ; Latter of equal values favored
+
+(deftest test-abs
+  (is (= 0.0 (abs 0.0) (abs -0.0)))
+  (is (= 3 (abs 3) (abs -3)))
+  (is (= 3.0 (abs 3.0) (abs -3.0)))
+  (is (= 3N (abs 3N) (abs -3N)))
+  (is (= 3M (abs 3M) (abs -3M)))
+  (is (neg? (abs Long/MIN_VALUE))) ; ?!?!
+  (is (every? (every-pred pos? infinite?) (map abs [##Inf ##-Inf])))
+  (is (NaN? (abs ##NaN))))
+
+(deftest test-dec'
+  (is (== 0 (dec' 1)))
+  (is (= 0 (dec' 1)))
+  (is (== 0.0 (dec' 1.0)))
+  (is (= 0.0 (dec' 1.0)))
+  (is (== 1/3 (dec' 4/3)))
+  (is (= 1/3 (dec' 4/3)))
+  (is (== 1N (dec' 2N)))
+  (is (= 1N (dec' 2N)))
+  (is (== 2M (dec' 3M)))
+  (is (= 2M (dec' 3M)))
+  (is (== -9223372036854775809N (dec' Long/MIN_VALUE)))
+  (is (== -9223372036854775809N (dec' (bigint Long/MIN_VALUE))))
+  (is (== -9223372036854775809N (dec' (biginteger Long/MIN_VALUE)))) )
+
+(deftest test-dec
+  (is (== 0 (dec 1)))
+  (is (= 0 (dec 1)))
+  (is (== 0.0 (dec 1.0)))
+  (is (= 0.0 (dec 1.0)))
+  (is (== 1/3 (dec 4/3)))
+  (is (= 1/3 (dec 4/3)))
+  (is (== 1N (dec 2N)))
+  (is (= 1N (dec 2N)))
+  (is (== 2M (dec 3M)))
+  (is (= 2M (dec 3M)))
+  (is (thrown? ArithmeticException (dec Long/MIN_VALUE)))
+  (is (== -9223372036854775809N (dec (bigint Long/MIN_VALUE))))
+  (is (== -9223372036854775809N (dec (biginteger Long/MIN_VALUE)))) )
+
+;; unchecked-inc-int
+;; unchecked-inc
+;; unchecked-dec-int
+;; unchecked-dec
+;; unchecked-negate-int
+;; unchecked-negate
+;; unchecked-add-int
+;; unchecked-add
+;; unchecked-subtract-int
+;; unchecked-subtract
+;; unchecked-multiply-int
+;; unchecked-multiply
+;; unchecked-divide-int
+;; unchecked-remainder-int
+
+(deftest test-pos?
+  (is (pos? 1))
+  (is (pos? 1.0))
+  (is (pos? 1/100))
+  (is (pos? 1M))
+  (is (pos? 1N))
+  (is (pos? Double/MIN_VALUE))
+  (is (pos? ##Inf))
+  (is (not (pos? 0)))
+  (is (not (pos? 0.0)))
+  (is (not (pos? 0M)))
+  (is (not (pos? 0N)))
+  (is (not (pos? -1)))
+  (is (not (pos? -1.0)))
+  (is (not (pos? -1/100)))
+  (is (not (pos? -1M)))
+  (is (not (pos? (- Double/MIN_VALUE))))
+  (is (not (pos? ##-Inf)))
+  (is (not (pos? ##NaN))))
+
+;;;
+;;;    p       r
+;;;    - = q + -
+;;;    d       d
+;;;    
+;;;    p = qd + r <=> r = p - qd
+;;;    
+;;;    d = (quot p q) => r = (rem p q)
+;;;    d = (math/floor (/ p q)) => r = (mod p q)   !!!
+;;;
+;;;    truncate
+;;;    
+(deftest test-quot
+  (is (= (quot 34 10) (int (/ 34 10))))
+  (is (== (quot 34 10) (int (/ 34 10))))
+  (is (= (quot -34 10) (int (/ -34 10))))
+  (is (== (quot -34 10) (int (/ -34 10))))
+
+  (is (= (quot 34 10) (long (/ 34 10))))
+  (is (== (quot 34 10) (long (/ 34 10))))
+  (is (= (quot -34 10) (long (/ -34 10))))
+  (is (== (quot -34 10) (long (/ -34 10))))
+
+  (is (not= (quot 34 10) (math/ceil (/ 34 10))))
+  (is (not (== (quot 34 10) (math/ceil (/ 34 10)))) )
+  (is (not= (quot 34 10) (math/floor (/ 34 10))))
+  (is (== (quot 34 10) (long (/ 34 10))))
+
+  (is (not= (quot -34 10) (math/ceil (/ -34 10))))
+  (is (== (quot -34 10) (math/ceil (/ -34 10))))
+  (is (not= (quot -34 10) (math/floor (/ -34 10))))
+  (is (not (== (quot -34 10) (math/floor (/ -34 10)))) )
+
+  (is (= java.lang.Long (class (quot 34 10))))
+  (is (= java.lang.Double (class (quot 34 10.0))))
+  (is (not= (quot 34 10.0) (long (/ 34 10.0))))
+  (is (== (quot 34 10.0) (long (/ 34 10.0)))) )
+
+;;;
+;;;    Same sign as first arg (or 0)
+;;;    
+(deftest test-rem
+  (is (== 1 (rem 10 3)))
+  (is (== 1 (rem 10 -3)))
+  (is (== -1 (rem -10 3)))
+  (is (== -1 (rem -10 -3))))
+
+(deftest test-rationalize
+  (is (== 5 (rationalize 5)))
+  (is (== 1/10 (rationalize 1/10)))
+  (is (not (== 1/10 (rationalize (float 0.1)))) ) ;!!
+  (is (== 1/10 (rationalize 0.1)))
+  (is (== 2/10 (rationalize 0.2)))
+  (is (== 3/10 (rationalize 0.3)))
+  (is (== 4/10 (rationalize 0.4)))
+  (is (== 5/10 (rationalize 0.5)))
+  (is (== 6/10 (rationalize 0.6))))
+
+;;;
+;;;    https://en.wikipedia.org/wiki/Bitwise_operation
+;;;    
+(deftest test-bit-not
+  (is (== -1 (bit-not 0)))
+  (is (== -1 (bit-not (byte 0))))
+  (is (== -1 (bit-not (short 0))))
+  (is (== -1 (bit-not (int 0))))
+  (is (thrown? IllegalArgumentException (bit-not 0N)))
+  (is (== 0 (bit-not -1)))
+  (let [n (rand-int 10000)]
+    (is (and (== -1 (+ n (bit-not n)))
+             (== n (bit-not (bit-not n)))) ))
+  (is (== 2r1010101011010 (bit-and 2r1111111111111 (bit-not 2r0101010100101)))) )
+
+(deftest test-bit-and
+  (is (== 2r0000 (bit-and 2r0000 2r1001)))
+  (is (== 2r1001 (bit-and 2r1001 2r1001)))
+  (is (== 2r1001 (bit-and 2r1111 2r1001))) ; Identity
+  (let [b1 2r101010
+        b2 2r110110]
+    (is (== (bit-and b1 b2) (bit-and b2 b1)))) ; Commutative
+  (let [b1 2r101010
+        b2 2r110110
+        b3 2r010110]
+    (is (== (bit-and b1 b2 b3)
+            (bit-and b1 (bit-and b2 b3))
+            (bit-and (bit-and b1 b2) b3)))) ; Associative
+  (is (== 2r0000 (bit-and 2r1110 2r1101 2r1011 2r0111)))
+  (is (thrown? IllegalArgumentException (bit-and 1N 0N)))
+  (let [n (rand-int 10000)]
+    (is (and (== 0 (bit-and 0 n))
+             (== n (bit-and -1 n)))) ))
+
+(deftest test-bit-or
+  (is (== 2r1001 (bit-or 2r0000 2r1001))) ; Identity
+  (is (== 2r1001 (bit-or 2r1001 2r1001)))
+  (is (== 2r1111 (bit-or 2r1111 2r1001)))
+  (let [b1 2r101010
+        b2 2r110110]
+    (is (== (bit-or b1 b2) (bit-or b2 b1)))) ; Commutative
+  (let [b1 2r101010
+        b2 2r110110
+        b3 2r010110]
+    (is (== (bit-or b1 b2 b3)
+            (bit-or b1 (bit-or b2 b3))
+            (bit-or (bit-or b1 b2) b3)))) ; Associative
+  (is (== 2r1111 (bit-or 2r0001 2r0010 2r0100 2r1000)))
+  (is (thrown? IllegalArgumentException (bit-or 1N 0N)))
+  (let [n (rand-int 10000)]
+    (is (and (== n (bit-or 0 n))
+             (== -1 (bit-or -1 n)))) ))
+
+(deftest test-bit-xor
+  (is (== 2r1001 (bit-or 2r0000 2r1001))) ; Identity
+  (is (== 2r1001 (bit-or 2r1001 2r1001)))
+  (is (== 2r1111 (bit-or 2r1111 2r1001)))
+  (is (thrown? IllegalArgumentException (bit-or 1N 0N)))
+  (let [n (rand-int 10000)]
+    (is (and (== n (bit-or 0 n))
+             (== -1 (bit-or -1 n)))) ))
+
+;;;
+;;;    ~/clojure/clojure/src/jvm/clojure/lang/Numbers.java
+;;;    static public long andNot(long x, long y){
+;;;        return x & ~y;
+;;;    }
+;;;    
+(deftest test-bit-and-not
+  (is (== 2r0 (bit-and-not 2r1 2r1)))
+  (is (== 2r1 (bit-and-not 2r1 2r0)))
+  (is (== 2r0 (bit-and-not 2r0 2r1)))
+  (is (== 2r0 (bit-and-not 2r1 2r1))) )
+
+(deftest test-bit-clear
+  (is (== 2r1110 (bit-clear 2r1111 0)))
+  (is (== 2r1101 (bit-clear 2r1111 1)))
+  (is (== 2r1011 (bit-clear 2r1111 2)))
+  (is (== 2r0111 (bit-clear 2r1111 3)))
+  (is (== 2r0000 (bit-clear 2r0000 0)))
+  (is (== 2r0000 (bit-clear 2r0000 1)))
+  (is (== 2r0000 (bit-clear 2r0000 2)))
+  (is (== 2r0000 (bit-clear 2r0000 3)))
+  (is (== 2r0000 (bit-clear (bit-clear (bit-clear (bit-clear 2r1111 0) 1) 2) 3))))
+
+(deftest test-bit-set
+  (is (== 2r1111 (bit-set 2r1111 0)))
+  (is (== 2r1111 (bit-set 2r1111 1)))
+  (is (== 2r1111 (bit-set 2r1111 2)))
+  (is (== 2r1111 (bit-set 2r1111 3)))
+  (is (== 2r0001 (bit-set 2r0000 0)))
+  (is (== 2r0010 (bit-set 2r0000 1)))
+  (is (== 2r0100 (bit-set 2r0000 2)))
+  (is (== 2r1000 (bit-set 2r0000 3)))
+  (is (== 2r1111 (bit-set (bit-set (bit-set (bit-set 2r0000 0) 1) 2) 3))))
+
+(deftest test-bit-flip
+  (is (== 2r1110 (bit-flip 2r1111 0)))
+  (is (== 2r1101 (bit-flip 2r1111 1)))
+  (is (== 2r1011 (bit-flip 2r1111 2)))
+  (is (== 2r0111 (bit-flip 2r1111 3)))
+  (is (== 2r0001 (bit-flip 2r0000 0)))
+  (is (== 2r0010 (bit-flip 2r0000 1)))
+  (is (== 2r0100 (bit-flip 2r0000 2)))
+  (is (== 2r1000 (bit-flip 2r0000 3)))
+  (is (== 2r0101 (bit-flip (bit-flip (bit-flip (bit-flip 2r1010 0) 1) 2) 3))))
+  
+(deftest test-bit-test
+  (is (every? #(bit-test 2r1111 %) (range 4)))
+  (is (not-any? #(bit-test 2r0000 %) (range 10))))
+
+;; https://clojuredocs.org/clojure.core/bit-test#example-5d401face4b0ca44402ef78b
+;; ;; bit-wise powerset (set of all subsets)
+
+;; (defn powerset [coll]
+;;   (let [cnt (count coll)
+;;         bits (Math/pow 2 cnt)]
+;;     (for [i (range bits)]
+;;       (for [j (range i)
+;;             :while (< j cnt)
+;;             :when (bit-test i j)]
+;;          (nth coll j)))))
+
+;; (powerset [1 2 3])
+;; ;; (() (1) (2) (1 2) (3) (1 3) (2 3) (1 2 3))
+
+;;;
+;;;    Clojure
+;;;    
+;; (bit-shift-left 2r1 62) => 4611686018427387904
+;; (bit-shift-left 2r1 63) => -9223372036854775808
+;; (bit-shift-left 2r1 64) => 1   <-- ????????
+;; (bit-shift-left 2r1 65) => 2
+;;;
+;;;    Same as Java
+;;;
+;; 1L << 62 => 4611686018427387904
+;; 1L << 63 => -9223372036854775808
+;; 1L << 64 => 1
+;; 1L << 65 => 2
+
+;;;
+;;;    Different from Java!
+;;;
+;; 1 << 30 => 1073741824
+;; 1 << 31 => -2147483648
+;; 1 << 33 => 2
+;; 1 << 32 => 1
+;; (bit-shift-left (int 1) 30) => 1073741824
+;; (bit-shift-left (int 1) 31) => 2147483648
+;; (bit-shift-left (int 1) 32) => 4294967296
+;; (bit-shift-left (int 1) 33) => 8589934592
+
+;;;
+;;;    Common Lisp
+;;;    
+;; (ash 1 62) => 4611686018427387904
+;; (ash 1 63) => 9223372036854775808
+;; (ash 1 64) => 18446744073709551616
+;; (ash 1 65) => 36893488147419103232
+;;    见 Lisp pensoj 250310
+(deftest test-bit-shift-left
+  (is (every? #(== (bit-shift-left 2r1 %) (math/pow 2 %)) (range 63)))
+  (is (loop [i 0
+             b 1]
+        (cond (== i 63) true
+              (== (bit-shift-left 2r1 i) b) (recur (inc i) (*' 2 b))
+              :else false)))
+  (is (< (bit-shift-left 2r1 61) (bit-shift-left 2r1 62)))
+  (is (> (bit-shift-left 2r1 62) (bit-shift-left 2r1 63))) ; !
+  (is (neg? (bit-shift-left 2r1 63)))
+  (is (== 1 (bit-shift-left 1 64)))
+  (is (== Long/MAX_VALUE (bit-shift-left Long/MAX_VALUE 64)))
+  (is (== Long/MIN_VALUE (bit-shift-left Long/MIN_VALUE 64)))
+  (is (thrown? IllegalArgumentException (bit-shift-left 1N 63))))
+
+(deftest test-bit-shift-right
+  (is (neg? (bit-shift-right Long/MIN_VALUE 1)))
+  (is (== Long/MAX_VALUE (bit-shift-right Long/MAX_VALUE 64)))
+  (is (== Long/MIN_VALUE (bit-shift-right Long/MIN_VALUE 64)))
+  (is (== -1 (bit-shift-right Long/MIN_VALUE 63))))
+
+(deftest test-unsigned-bit-shift-right
+  (is (pos? (unsigned-bit-shift-right Long/MIN_VALUE 1)))
+  (is (== Long/MAX_VALUE (unsigned-bit-shift-right Long/MAX_VALUE 64)))
+  (is (== Long/MIN_VALUE (unsigned-bit-shift-right Long/MIN_VALUE 64)))
+  (is (== 1 (unsigned-bit-shift-right Long/MIN_VALUE 63))))
+
+
+
 
 
 (deftest test-ratios
